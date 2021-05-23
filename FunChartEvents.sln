@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31205.134
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FunChartEvents", "FunChartEvents.csproj", "{0F48988A-5A19-4348-BEC0-4292E55CEE2E}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0F48988A-5A19-4348-BEC0-4292E55CEE2E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0F48988A-5A19-4348-BEC0-4292E55CEE2E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0F48988A-5A19-4348-BEC0-4292E55CEE2E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0F48988A-5A19-4348-BEC0-4292E55CEE2E}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {CEB21416-CC59-4133-9A70-C75219AAD4DB}
+	EndGlobalSection
+EndGlobal
