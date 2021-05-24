@@ -33,7 +33,7 @@ using Rewired;
 
 namespace FunChartEvents
 {
-	[BepInPlugin("com.yoshiog.funchartevents", "FunChartEvents", "1.0.1")]
+	[BepInPlugin("com.yoshiog.funchartevents", "FunChartEvents", "1.0.2")]
 	[BepInDependency("com.biendeo.biendeochlib")]
 	public class FunChartEvents : BaseUnityPlugin
 	{
@@ -125,6 +125,7 @@ namespace FunChartEvents
 			}
 			if (this.sceneChanged && sceneName == "Gameplay")
 			{
+				this.sceneChanged = false;
 				ResetGemColors();
 
 				gmObj = GameObject.Find("Game Manager").GetComponent<GameManager>();
@@ -198,146 +199,140 @@ namespace FunChartEvents
 				else
 				{
 					commands = new List<ChartCommand>();
+					isNotesDotChart = false;
 				}
-				this.sceneChanged = false;
 			}
 			if (sceneName == "Gameplay")
 			{
-				cmdTimer += Time.deltaTime;
-				if (cmdTimer >= 1 / (float)refreshRate)
-                {
-					if (isNotesDotChart)
-                    {
-						if (index < commands.Count)
+				if (commands.Count > 0)
+				{
+					cmdTimer += Time.deltaTime;
+					if (cmdTimer >= 1 / (float)refreshRate)
+					{
+						cmdTimer -= 1 / (float)refreshRate;
+						currentTick = GetCurrentTick(gmObj);
+						if (currentTick == 0)
 						{
-							currentTick = GetCurrentTick(gmObj);
-							if (currentTick == 0)
-							{
-								currentMS = TimeSpan.FromSeconds(gameMgr.SongTime).TotalMilliseconds * songSpeed;
-							}
-							else
-							{
-								currentMS = 0;
-							}
-							if (currentMS < -900)
-							{
-								// gmObj = GameObject.Find("Game Manager").GetComponent<GameManager>();
-								gameMgr = GameManagerWrapper.Wrap(gmObj);
-								curHudTxt = "";
-								oldHudTxt = "";
-							}
-							if (ReachedTick(commands[index].Tick))
-							{
-								ChartCommand curCommand = commands[index++];
-								cmd = curCommand.Command;
-								param = curCommand.Parameter;
-								parameters = param.Split(paramSeparators, StringSplitOptions.RemoveEmptyEntries).ToList<string>();
-								if (cmd == "gemsize")
-								{
-									if (float.TryParse(param, out gemMult))
-									{
-										foreach (var gameObj in Resources.FindObjectsOfTypeAll(typeof(GameObject)) as GameObject[])
-										{
-											if (gameObj.name.StartsWith("Note"))
-											{
-												gameObj.transform.localScale = new Vector3(defGemSize * gemMult, defGemSize * gemMult, 1f);
-											}
-										}
-									}
-								}
-								if (cmd == "hudtext")
-								{
-									curHudTxt = param;
-									hudParsed = false;
-									if (oldHudTxt != curHudTxt)
-									{
-										oldHudTxt = curHudTxt;
-									}
-									hudText.enabled = true;
-									parsedHudTxt = this.ParseTags(param, out hudParsed);
-									SetHUDText(parsedHudTxt);
-								}
-								if (cmd == "hudtext_off")
-								{
-									hudParsed = false;
-									if (oldHudTxt != curHudTxt)
-									{
-										oldHudTxt = curHudTxt;
-									}
-									hudText.enabled = false;
-								}
-								if (cmd == "highwaywidth")
-								{
-									if (float.TryParse(param, out targetHwWidth))
-									{
-										if (targetHwWidth != 0)
-										{
-											lastHwwIndex = index - 1;
-											startHwWidth = defaultAspect / playerOneCam.aspect;
-											timeSinceLastHww -= commands[0].Resolution;
-											hwwIsChanging = true;
-										}
-									}
-								}
-								if (cmd == "gemcolor")
-								{
-									doGemColor = true;
-									if (ColorUtility.TryParseHtmlString(param, out gemColor))
-									{
-										SetGemColors(gemColor, gemColor, gemColor, gemColor, gemColor);
-									}
-								}
-								if (cmd == "gemcolor_off")
-								{
-									ResetGemColors();
-								}
-							}
+							currentMS = TimeSpan.FromSeconds(gameMgr.SongTime).TotalMilliseconds * songSpeed;
 						}
-						if (commands.Count > 0)
-                        {
-							if (gameMgr.IsPaused)
+						else
+						{
+							currentMS = 0;
+						}
+						if (currentMS < -900)
+						{
+							// gmObj = GameObject.Find("Game Manager").GetComponent<GameManager>();
+							gameMgr = GameManagerWrapper.Wrap(gmObj);
+							curHudTxt = "";
+							oldHudTxt = "";
+						}
+						if (ReachedTick(commands[index].Tick))
+						{
+							ChartCommand curCommand = commands[index++];
+							cmd = curCommand.Command;
+							param = curCommand.Parameter;
+							parameters = param.Split(paramSeparators, StringSplitOptions.RemoveEmptyEntries).ToList<string>();
+							if (cmd == "gemsize")
 							{
+								if (float.TryParse(param, out gemMult))
+								{
+									foreach (var gameObj in Resources.FindObjectsOfTypeAll(typeof(GameObject)) as GameObject[])
+									{
+										if (gameObj.name.StartsWith("Note"))
+										{
+											gameObj.transform.localScale = new Vector3(defGemSize * gemMult, defGemSize * gemMult, 1f);
+										}
+									}
+								}
+							}
+							if (cmd == "hudtext")
+							{
+								curHudTxt = param;
+								hudParsed = false;
+								if (oldHudTxt != curHudTxt)
+								{
+									oldHudTxt = curHudTxt;
+								}
+								hudText.enabled = true;
+								parsedHudTxt = this.ParseTags(param, out hudParsed);
+								SetHUDText(parsedHudTxt);
+							}
+							if (cmd == "hudtext_off")
+							{
+								hudParsed = false;
+								if (oldHudTxt != curHudTxt)
+								{
+									oldHudTxt = curHudTxt;
+								}
 								hudText.enabled = false;
 							}
-							if (!gameMgr.IsPaused)
+							if (cmd == "highwaywidth")
 							{
-								parsedHudTxt = this.ParseTags(curHudTxt, out hudParsed);
-								if (hudParsed)
+								if (float.TryParse(param, out targetHwWidth))
 								{
-									SetHUDText(parsedHudTxt);
+									if (targetHwWidth != 0)
+									{
+										lastHwwIndex = index - 1;
+										startHwWidth = defaultAspect / playerOneCam.aspect;
+										timeSinceLastHww -= commands[0].Resolution;
+										hwwIsChanging = true;
+									}
 								}
 							}
-							if (hwwIsChanging)
+							if (cmd == "gemcolor")
 							{
-								timeSinceLastHww = currentTick - commands[lastHwwIndex].Tick;
-								highwayWidthFactor = (float)timeSinceLastHww / commands[0].Resolution * (targetHwWidth - startHwWidth) + startHwWidth;
-								if (timeSinceLastHww < commands[0].Resolution && highwayWidthFactor != 0)
+								doGemColor = true;
+								if (ColorUtility.TryParseHtmlString(param, out gemColor))
 								{
-									if (!gameMgr.IsPaused)
-									{
-										playerOneCam.aspect = defaultAspect / highwayWidthFactor;
-									}
-									else
-									{
-										playerOneCam.aspect = defaultAspect / targetHwWidth;
-										hwwIsChanging = false;
-									}
+									SetGemColors(gemColor, gemColor, gemColor, gemColor, gemColor);
 								}
-								if (timeSinceLastHww > commands[0].Resolution+3 && playerOneCam.aspect == defaultAspect / targetHwWidth)
+							}
+							if (cmd == "gemcolor_off")
+							{
+								ResetGemColors();
+							}
+						}
+						if (gameMgr.IsPaused)
+						{
+							hudText.enabled = false;
+						}
+						if (!gameMgr.IsPaused)
+						{
+							parsedHudTxt = this.ParseTags(curHudTxt, out hudParsed);
+							if (hudParsed)
+							{
+								SetHUDText(parsedHudTxt);
+							}
+						}
+						if (hwwIsChanging)
+						{
+							timeSinceLastHww = currentTick - commands[lastHwwIndex].Tick;
+							highwayWidthFactor = (float)timeSinceLastHww / commands[0].Resolution * (targetHwWidth - startHwWidth) + startHwWidth;
+							if (timeSinceLastHww < commands[0].Resolution && highwayWidthFactor != 0)
+							{
+								if (!gameMgr.IsPaused)
 								{
+									playerOneCam.aspect = defaultAspect / highwayWidthFactor;
+								}
+								else
+								{
+									playerOneCam.aspect = defaultAspect / targetHwWidth;
 									hwwIsChanging = false;
 								}
-								if (timeSinceLastHww >= commands[0].Resolution || gameMgr.IsPaused)
+							}
+							if (timeSinceLastHww > commands[0].Resolution + 3 && playerOneCam.aspect == defaultAspect / targetHwWidth)
+							{
+								hwwIsChanging = false;
+							}
+							if (timeSinceLastHww >= commands[0].Resolution || gameMgr.IsPaused)
+							{
+								if (highwayWidthFactor != targetHwWidth)
 								{
-									if (highwayWidthFactor != targetHwWidth)
-                                    {
-										playerOneCam.aspect = defaultAspect / targetHwWidth;
-									}
+									playerOneCam.aspect = defaultAspect / targetHwWidth;
 								}
 							}
 						}
 					}
-					cmdTimer -= 1 / (float)refreshRate;
 				}
 			}
 		}
