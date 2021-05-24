@@ -33,12 +33,11 @@ using Rewired;
 
 namespace FunChartEvents
 {
-	[BepInPlugin("com.yoshiog.funchartevents", "FunChartEvents", "1.0.0")]
+	[BepInPlugin("com.yoshiog.funchartevents", "FunChartEvents", "1.0.1")]
 	[BepInDependency("com.biendeo.biendeochlib")]
 	public class FunChartEvents : BaseUnityPlugin
 	{
-		public readonly bool doDebugHUD = false;
-
+		// public readonly bool doDebugHUD = false;
 		public static FunChartEvents Instance { get; private set; }
 		public GameManager gmObj;
 		public GameManagerWrapper gameMgr;
@@ -119,14 +118,10 @@ namespace FunChartEvents
 		public void LateUpdate()
 		{
 			sceneName = SceneManager.GetActiveScene().name;
-			if (!hudWasInit)
+			if (!hudWasInit && sceneName == "Gameplay")
 			{
-				if (sceneName == "Gameplay")
-				{
-					Transform canvasTransform = FadeBehaviourWrapper.Instance.FadeGraphic.canvas.transform;
-					HUDTextInit(canvasTransform);
-					hudWasInit = true;
-				}
+				Transform canvasTransform = FadeBehaviourWrapper.Instance.FadeGraphic.canvas.transform;
+				HUDTextInit(canvasTransform);
 			}
 			if (this.sceneChanged && sceneName == "Gameplay")
 			{
@@ -189,15 +184,16 @@ namespace FunChartEvents
 											//	Value of 1 resets.
 
 						"gemcolor",			// Sets all gems' colors to a hex value.
-											//		`colorgems #RRGGBB`
-											//		  [Color] #RRGGBB : A hex RGB color value.
-											//			  (!)
+											//	  `gemcolor #RRGGBB`
+											//		[Color] #RRGGBB : A hex RGB color value.
+											//			 (!)
 						"gemcolor_off",		//												 |    |
 						
 					};
 					commands = parser.ParseEvents(customEvents);
 					index = 0;
 					currentMS = -1000;
+					timeSinceLastHww = commands[0].Resolution;
 				}
 				else
 				{
@@ -277,11 +273,9 @@ namespace FunChartEvents
 										if (targetHwWidth != 0)
 										{
 											lastHwwIndex = index - 1;
-											if (!hwwIsChanging && targetHwWidth != defaultAspect / playerOneCam.aspect)
-											{
-												startHwWidth = defaultAspect / playerOneCam.aspect;
-												hwwIsChanging = true;
-											}
+											startHwWidth = defaultAspect / playerOneCam.aspect;
+											timeSinceLastHww -= commands[0].Resolution;
+											hwwIsChanging = true;
 										}
 									}
 								}
@@ -310,10 +304,6 @@ namespace FunChartEvents
 								parsedHudTxt = this.ParseTags(curHudTxt, out hudParsed);
 								if (hudParsed)
 								{
-									if (doDebugHUD)
-									{
-										parsedHudTxt = "Tick:" + GetCurrentTick(gmObj).ToString();
-									}
 									SetHUDText(parsedHudTxt);
 								}
 							}
@@ -333,10 +323,16 @@ namespace FunChartEvents
 										hwwIsChanging = false;
 									}
 								}
+								if (timeSinceLastHww > commands[0].Resolution+3 && playerOneCam.aspect == defaultAspect / targetHwWidth)
+								{
+									hwwIsChanging = false;
+								}
 								if (timeSinceLastHww >= commands[0].Resolution || gameMgr.IsPaused)
 								{
-									playerOneCam.aspect = defaultAspect / targetHwWidth;
-									hwwIsChanging = false;
+									if (highwayWidthFactor != targetHwWidth)
+                                    {
+										playerOneCam.aspect = defaultAspect / targetHwWidth;
+									}
 								}
 							}
 						}
@@ -347,11 +343,11 @@ namespace FunChartEvents
 		}
 		#endregion
 		public uint GetCurrentTick(GameManager gm)
-		{
+		{  // Get current chart tick position in song.  Requires a defined GameManager object.
 			return (uint)(tickField.GetValue(gm));
 		}
 		public bool ReachedTick(uint position, GameManager gm = null)
-		{
+		{  // Whether or not a tick position was reached in the current song
 			if (gm == null && gmObj != null)
             {
 				gm = gmObj;
@@ -363,7 +359,7 @@ namespace FunChartEvents
 			return GetCurrentTick(gm) >= position;
 		}
 		private void SetHUDText(string text)
-		{
+		{  // To be used with `hudtext` event.
 			if (hudWasInit)
 			{
 				hudText.enabled = true;
@@ -514,7 +510,7 @@ namespace FunChartEvents
 									//					colored cyan if 1, white if 0.
 			"{SongTick}",			// [int]		Current song time in chart ticks.
 		};                          // (!!!) These tag names are case-sensitive!
-		public string ParseTags(string input)
+		public string ParseTags(string input)  // ONLY USE `ParseTags` for parsing the tags above, NOT `ParseTextTags`!!
 		{
 			string ree = ParseTextTags(input, out bool _);
 			return ree;
@@ -524,11 +520,10 @@ namespace FunChartEvents
 			string ree = ParseTextTags(input, out boolOut);
 			return ree;
 		}
-		// public string dbgParsedTxt;
 		public string ParseTextTags(string text, out bool outputBool)
 		{
 			bool didFindVars = false;
-			string ret = text;
+			string ret = text.Replace("''","\"");
 
 			bool isBot = gameMgr.BasePlayers[0].Player.PlayerProfile.Bot.GetBoolValue;
 			bool isFC = gameMgr.BasePlayers[0].FCIndicator.activeSelf;
@@ -624,7 +619,6 @@ namespace FunChartEvents
 				myHud.layer = LayerMask.NameToLayer("UI");
 				myHud.SetActive(true);
 				myHud.transform.SetParent(trans);
-				//
 				myHud.transform.localPosition = new Vector3();
 				myHud.transform.localEulerAngles = new Vector3();
 				myHud.transform.localScale = new Vector3(1.0f, 1.0f, 1.0f); // */
@@ -666,8 +660,17 @@ namespace FunChartEvents
 			new Color(0.47f, 0.823f, 1f),
 			new Color(1f, 0.749f, 0.16f)
 		};
+		public readonly Color[] defaultFretColors = new Color[]
+		{
+			new Color(0f, 1f, 0f),
+			new Color(1f, 0f, 0f),
+			new Color(1f, 1f, 0f),
+			new Color(0f, 0.776f, 1f),
+			new Color(1f, 0.827f, 0.235f)
+		};
 		public FieldInfo noteColorFI;
 		public FieldInfo noteAnimFI;
+		public FieldInfo susColorFI;  // When the imposter is sustain
 		private void GemColorInit()
         {
 			byte[] noteFieldBytes = Encoding.Unicode.GetBytes("\u0319\u0317\u0318\u031a\u030e\u0314\u030d\u0313\u0315\u0311\u031c");
@@ -681,24 +684,31 @@ namespace FunChartEvents
 			}
 			noteColorFI = noteFieldType.GetField("\u030e\u031a\u031a\u0313\u0317\u0314\u0311\u0316\u031a\u0316\u0314");
 			noteAnimFI = noteFieldType.GetField("\u0314\u0310\u031C\u0315\u031A\u0311\u0318\u030F\u0315\u0313\u031B");
+			susColorFI = noteFieldType.GetField("\u030E\u031C\u031B\u0319\u031B\u0315\u0318\u031B\u0319\u0312\u031C");
 		}
 		public void SetGemColors(Color g, Color r, Color y, Color b, Color o)
         {
             Color[] newGemColors = new Color[] { g, r, y, b, o, defaultGemColors[5] };
 			noteColorFI.SetValue(null, newGemColors);
 			SetGemAnim(g, r, y, b, o);
+			SetSustainColors(g, r, y, b, o);
 		}
 		public void SetGemAnim(Color g, Color r, Color y, Color b, Color o)
         {
 			Color[] newAnimColors = new Color[] { g, r, y, b, o };
 			noteAnimFI.SetValue(null, newAnimColors);
         }
+		public void SetSustainColors(Color g, Color r, Color y, Color b, Color o)
+        {
+			Color[] newFretColors = new Color[] { g, r, y, b, o };
+			susColorFI.SetValue(null, newFretColors);
+        }
 		public void ResetGemColors()
         {
 			SetGemColors(defaultGemColors[0], defaultGemColors[1], defaultGemColors[2], defaultGemColors[3], defaultGemColors[4]);
 			SetGemAnim(defaultAnimColors[0], defaultAnimColors[1], defaultAnimColors[2], defaultAnimColors[3], defaultAnimColors[4]);
+			SetSustainColors(defaultFretColors[0], defaultFretColors[1], defaultFretColors[2], defaultFretColors[3], defaultFretColors[4]);
 		}
-
 		private static bool[] ConvertByteToBoolArray(byte b)
 		{
 			// prepare the return result
